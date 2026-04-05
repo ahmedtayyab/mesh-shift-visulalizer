@@ -1,0 +1,13 @@
+{
+  "name": "mesh-shift-visualizer",
+  "version": "1.0.0",
+  "description": "Interactive circular q-shift visualizer on 2D mesh topology",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve ."
+  },
+  "keywords": ["parallel-computing", "mesh", "circular-shift", "visualization"],
+  "author": "PDC Spring-2026",
+  "license": "MIT"
+}

@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mesh Circular Shift Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg:       #0a0c10;
+    --surface:  #111318;
+    --panel:    #181c24;
+    --border:   #252a35;
+    --accent:   #00e5ff;
+    --accent2:  #ff6b35;
+    --accent3:  #a259ff;
+    --text:     #e8eaf0;
+    --muted:    #6b7280;
+    --success:  #22c55e;
+    --row-col:  #ff6b35;
+    --col-col:  #a259ff;
+    --node-bg:  #1e2330;
+    --node-border: #2d3545;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+  }
+  .logo-dot {
+    background: var(--accent);
+    border-radius: 2px;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  .logo-dot:nth-child(2) { background: var(--accent2); animation-delay: .25s; }
+  .logo-dot:nth-child(3) { background: var(--accent3); animation-delay: .5s; }
+  .logo-dot:nth-child(4) { background: var(--accent);  animation-delay: .75s; }
+  @keyframes pulse-dot {
+    0%,100% { opacity: .5; transform: scale(.9); }
+    50%      { opacity: 1;  transform: scale(1); }
+  }
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--accent);
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .header-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── LAYOUT ── */
+  .app {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 65px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+  .panel-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .input-label {
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .input-label span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .styled-input {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 8px;
+    width: 100%;
+    outline: none;
+    transition: border-color .2s;
+    -moz-appearance: textfield;
+  }
+  .styled-input::-webkit-outer-spin-button,
+  .styled-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .styled-input:focus { border-color: var(--accent); }
+  .styled-input.error { border-color: #ef4444; }
+  .error-msg {
+    font-size: 11px;
+    color: #ef4444;
+    font-family: var(--mono);
+    min-height: 16px;
+  }
+  .valid-values {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── Calc box ── */
+  .calc-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .calc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .calc-row:last-child { border-bottom: none; }
+  .calc-key { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .calc-val { font-family: var(--mono); font-weight: 700; }
+  .calc-val.row  { color: var(--row-col); }
+  .calc-val.col  { color: var(--col-col); }
+  .calc-val.mesh { color: var(--accent); }
+  .calc-val.ring { color: var(--muted); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .06em;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+    width: 100%;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #33eaff; transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row .btn { width: auto; flex: 1; }
+
+  /* ── Status badge ── */
+  .status-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-dot.idle    { background: var(--muted); }
+  .status-dot.running { background: var(--accent); animation: blink .8s infinite; }
+  .status-dot.done    { background: var(--success); }
+  .status-dot.error   { background: #ef4444; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── MAIN CONTENT ── */
+  .main {
+    overflow-y: auto;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  /* ── Stage tabs ── */
+  .stage-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    width: fit-content;
+  }
+  .stage-tab {
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all .2s;
+  }
+  .stage-tab.active {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .stage-tab.active.row  { color: var(--row-col); border-color: var(--row-col); }
+  .stage-tab.active.col  { color: var(--col-col); border-color: var(--col-col); }
+  .stage-tab.active.final { color: var(--accent); border-color: var(--accent); }
+
+  /* ── Grid section ── */
+  .grids-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .grid-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .grid-panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    margin-bottom: 4px;
+  }
+  .grid-panel-title.row  { color: var(--row-col); }
+  .grid-panel-title.col  { color: var(--col-col); }
+  .grid-panel-title.init { color: var(--muted); }
+  .grid-panel-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── Mesh grid ── */
+  .mesh-grid-wrap {
+    display: flex;
+    justify-content: center;
+    position: relative;
+  }
+  .mesh-grid {
+    display: grid;
+    gap: 6px;
+  }
+  .mesh-node {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--node-bg);
+    border: 1px solid var(--node-border);
+    border-radius: 8px;
+    width: 52px; height: 52px;
+    position: relative;
+    transition: all .3s cubic-bezier(.4,0,.2,1);
+    cursor: default;
+  }
+  .mesh-node .node-id {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .mesh-node .node-label {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+  .mesh-node.highlight {
+    border-color: var(--accent);
+    background: #0a2030;
+    box-shadow: 0 0 0 2px rgba(0,229,255,.2);
+  }
+  .mesh-node.moved-row {
+    border-color: var(--row-col);
+    background: #1e1208;
+    animation: node-pop .4s ease;
+  }
+  .mesh-node.moved-col {
+    border-color: var(--col-col);
+    background: #160a20;
+    animation: node-pop .4s ease;
+  }
+  @keyframes node-pop {
+    0%   { transform: scale(.85); opacity: .5; }
+    60%  { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Arrow SVG overlay ── */
+  .arrow-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* ── Animation view ── */
+  .anim-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .anim-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .anim-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .anim-controls { display: flex; gap: 8px; align-items: center; }
+  .anim-speed {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  .speed-slider {
+    width: 80px; accent-color: var(--accent);
+  }
+  .step-indicator {
+    display: flex; gap: 8px;
+    margin-bottom: 16px;
+  }
+  .step-pip {
+    height: 3px; flex: 1; border-radius: 2px;
+    background: var(--border);
+    transition: background .3s;
+  }
+  .step-pip.active.row  { background: var(--row-col); }
+  .step-pip.active.col  { background: var(--col-col); }
+  .step-pip.done        { background: var(--accent); opacity: .4; }
+
+  /* ── Node movement list ── */
+  .moves-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .move-item {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    transition: all .2s;
+  }
+  .move-item.row { border-color: rgba(255,107,53,.3); }
+  .move-item.col { border-color: rgba(162,89,255,.3); }
+  .move-chip {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 11px;
+    background: var(--node-bg);
+    border: 1px solid var(--node-border);
+    flex-shrink: 0;
+  }
+  .move-arrow { color: var(--muted); }
+  .move-coords { color: var(--muted); font-size: 10px; }
+
+  /* ── Complexity panel ── */
+  .complexity-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .complexity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .formula-row {
+    display: flex; gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .formula-box {
+    flex: 1; min-width: 200px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .formula-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .formula-expr {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .formula-result {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .formula-box.mesh .formula-result { color: var(--accent); }
+  .formula-box.ring .formula-result { color: var(--muted); }
+  .chart-wrap {
+    position: relative; height: 180px;
+  }
+  .efficiency-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,229,255,.1);
+    border: 1px solid rgba(0,229,255,.3);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+
+  /* ── Verification badge ── */
+  .verify-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .verify-icon { font-size: 20px; }
+  .verify-text { font-family: var(--mono); font-size: 12px; }
+  .verify-text strong { color: var(--success); }
+  .verify-row.ok   { border-color: rgba(34,197,94,.3); }
+  .verify-row.fail { border-color: rgba(239,68,68,.3); }
+
+  /* ── Table ── */
+  .data-table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .data-table th {
+    text-align: left; padding: 8px 12px;
+    color: var(--muted); font-weight: 400;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px; letter-spacing: .1em;
+  }
+  .data-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .chip-mesh { color: var(--accent); }
+  .chip-ring { color: var(--muted); }
+  .win { color: var(--success); font-weight: 700; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .grids-section { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+    </div>
+    <div>
+      <div class="logo-text">MESH SHIFT</div>
+      <div class="logo-sub">Circular q-shift visualizer</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <div class="status-badge">
+      <div class="status-dot idle" id="statusDot"></div>
+      <span id="statusText">ready</span>
+    </div>
+    <div class="header-badge">PDC · Assignment 02 · Q4</div>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- ── SIDEBAR ── -->
+  <div class="sidebar">
+    <div>
+      <div class="panel-label">Parameters</div>
+      <div class="input-group" style="margin-bottom:14px">
+        <div class="input-label">
+          Total nodes <span id="pSqurtLabel">√p = —</span>
+        </div>
+        <input type="number" class="styled-input" id="pInput" value="16" min="4" max="64" step="1"/>
+        <div class="error-msg" id="pError"></div>
+        <div class="valid-values">Perfect squares only: 4, 9, 16, 25, 36, 49, 64</div>
+      </div>
+      <div class="input-group">
+        <div class="input-label">
+          Shift distance q <span id="qRangeLabel">1 – 15</span>
+        </div>
+        <input type="number" class="styled-input" id="qInput" value="6" min="1" max="63"/>
+        <div class="error-msg" id="qError"></div>
+      </div>
+    </div>
+
+    <!-- Calc box -->
+    <div>
+      <div class="panel-label">Shift Decomposition</div>
+      <div class="calc-box">
+        <div class="calc-row">
+          <span class="calc-key">p</span>
+          <span class="calc-val" id="cv-p">16</span>
+        </div>
+        <div class="calc-row">
+          <span class="calc-key">√p</span>
+          <span class="calc-val" id="cv-sqrtp">4</span>
+        </div>
+        <div class="calc-row">
+          <span class="calc-key">q</span>
+          <span class="calc-val" id="cv-q">6</span>
+        </div>
+        <div class="calc-row">
+          <span class="calc-key">row_shift = q mod √p</span>
+          <span class="calc-val row" id="cv-rowshift">2</span>
+        </div>
+        <div class="calc-row">
+          <span class="calc-key">col_shift = ⌊q / √p⌋</span>
+          <span class="calc-val col" id="cv-colshift">1</span>
+        </div>
+        <div class="calc-row">
+          <span class="calc-key">mesh steps (total)</span>
+          <span class="calc-val mesh" id="cv-mesh">3</span>
+        </div>
+        <div class="calc-row">
+          <span class="calc-key">ring steps min(q,p-q)</span>
+          <span class="calc-val ring" id="cv-ring">6</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run buttons -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" id="runBtn" onclick="runAnimation()">
+        ▶ RUN ANIMATION
+      </button>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="stepBack()">← Step</button>
+        <button class="btn btn-secondary" onclick="stepForward()">Step →</button>
+      </div>
+      <button class="btn btn-secondary" onclick="resetAll()">↺ Reset</button>
+    </div>
+
+    <!-- Verification -->
+    <div id="verifyBox" class="verify-row" style="display:none">
+      <div class="verify-icon" id="verifyIcon">✓</div>
+      <div>
+        <div class="verify-text" id="verifyText"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px" id="verifyDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+
+    <!-- Three grids side by side -->
+    <div class="grids-section">
+      <div class="grid-panel">
+        <div class="grid-panel-title init">INITIAL STATE</div>
+        <div class="grid-panel-sub">Node i stores data = i</div>
+        <div class="mesh-grid-wrap">
+          <div class="mesh-grid" id="grid-initial"></div>
+        </div>
+      </div>
+      <div class="grid-panel">
+        <div class="grid-panel-title row" id="stage1Title">AFTER STAGE 1</div>
+        <div class="grid-panel-sub" id="stage1Sub">Row shift → <span id="s1amount" style="color:var(--row-col);font-weight:600">2</span> right</div>
+        <div class="mesh-grid-wrap" style="position:relative">
+          <div class="mesh-grid" id="grid-stage1"></div>
+          <svg class="arrow-overlay" id="arrows-stage1"></svg>
+        </div>
+      </div>
+      <div class="grid-panel">
+        <div class="grid-panel-title col" id="stage2Title">AFTER STAGE 2</div>
+        <div class="grid-panel-sub" id="stage2Sub">Col shift ↓ <span id="s2amount" style="color:var(--col-col);font-weight:600">1</span> down</div>
+        <div class="mesh-grid-wrap" style="position:relative">
+          <div class="mesh-grid" id="grid-stage2"></div>
+          <svg class="arrow-overlay" id="arrows-stage2"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Animation panel -->
+    <div class="anim-section">
+      <div class="anim-header">
+        <div>
+          <div class="anim-title">STEP-BY-STEP ANIMATION</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px" id="animDesc">Press Run to begin</div>
+        </div>
+        <div class="anim-controls">
+          <div class="anim-speed">
+            Speed
+            <input type="range" class="speed-slider" id="speedSlider" min="200" max="2000" value="800" step="100"/>
+          </div>
+        </div>
+      </div>
+      <div class="step-indicator" id="stepIndicator"></div>
+      <div class="mesh-grid-wrap" style="justify-content:flex-start;gap:24px;align-items:flex-start">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:.1em">LIVE GRID</div>
+          <div style="position:relative;display:inline-block">
+            <div class="mesh-grid" id="grid-anim"></div>
+            <svg class="arrow-overlay" id="arrows-anim" style="pointer-events:none"></svg>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:.1em">DATA MOVEMENTS</div>
+          <div class="moves-list" id="movesList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Complexity panel -->
+    <div class="complexity-section">
+      <div class="complexity-header">
+        <div>
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent3)">COMPLEXITY ANALYSIS</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Mesh vs Ring step count</div>
+        </div>
+        <div class="efficiency-badge" id="effBadge">
+          <span>⚡</span> <span id="effText">Mesh is 2.0× faster</span>
+        </div>
+      </div>
+      <div class="formula-row">
+        <div class="formula-box mesh">
+          <div class="formula-label">MESH STEPS</div>
+          <div class="formula-expr" id="meshFormula">(q mod √p) + ⌊q/√p⌋</div>
+          <div class="formula-result" id="meshStepsVal">3</div>
+        </div>
+        <div class="formula-box ring">
+          <div class="formula-label">RING STEPS</div>
+          <div class="formula-expr">min(q, p − q)</div>
+          <div class="formula-result" id="ringStepsVal">6</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="complexityChart"></canvas>
+      </div>
+      <div style="margin-top:20px">
+        <div class="panel-label" style="margin-bottom:10px">Comparison table (fixed p, varying q)</div>
+        <table class="data-table" id="compTable"></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// shiftLogic (inline — mirrors src/utils/shiftLogic.js)
+// ─────────────────────────────────────────────────────────
+const ShiftLogic = {
+  validate(p, q) {
+    const errs = [];
+    if (!Number.isInteger(p) || p < 4 || p > 64) errs.push("p must be 4–64");
+    const s = Math.sqrt(p);
+    if (!Number.isInteger(s)) errs.push("p must be a perfect square");
+    if (!Number.isInteger(q) || q < 1 || q >= p) errs.push(`q must be 1–${p-1}`);
+    return errs;
+  },
+  amounts(p, q) {
+    const sqrtP    = Math.sqrt(p);
+    const rowShift = q % sqrtP;
+    const colShift = Math.floor(q / sqrtP);
+    const meshSteps = rowShift + colShift;
+    const ringSteps = Math.min(q, p - q);
+    return { sqrtP, rowShift, colShift, meshSteps, ringSteps };
+  },
+  initial(p) {
+    return Array.from({length: p}, (_, i) => i);
+  },
+  applyRow(nodes, p, rowShift) {
+    const s = Math.sqrt(p);
+    const out = [...nodes];
+    for (let r = 0; r < s; r++) {
+      for (let c = 0; c < s; c++) {
+        out[r*s + (c + rowShift) % s] = nodes[r*s + c];
+      }
+    }
+    return out;
+  },
+  applyCol(nodes, p, colShift) {
+    const s = Math.sqrt(p);
+    const out = [...nodes];
+    for (let c = 0; c < s; c++) {
+      for (let r = 0; r < s; r++) {
+        out[((r + colShift) % s)*s + c] = nodes[r*s + c];
+      }
+    }
+    return out;
+  },
+  verify(finalNodes, p, q) {
+    // After shift: value that was at pos i should now be at (i+q)%p
+    return finalNodes.every((val, pos) => {
+      const expectedPos = (val + q) % p;
+      return expectedPos === pos;
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────
+let state = {
+  p: 16, q: 6,
+  initial: [], afterRow: [], afterFinal: [],
+  animStep: 0, animRunning: false, animTimer: null,
+  totalAnimSteps: 0,
+  rowShift: 2, colShift: 1, sqrtP: 4
+};
+
+let compChart = null;
+
+// ─────────────────────────────────────────────────────────
+// Input handling & validation
+// ─────────────────────────────────────────────────────────
+document.getElementById('pInput').addEventListener('input', onParamsChange);
+document.getElementById('qInput').addEventListener('input', onParamsChange);
+
+function getInputs() {
+  return {
+    p: parseInt(document.getElementById('pInput').value) || 0,
+    q: parseInt(document.getElementById('qInput').value) || 0,
+  };
+}
+
+function onParamsChange() {
+  const {p, q} = getInputs();
+  const errs = ShiftLogic.validate(p, q);
+  const pErr = errs.find(e => e.includes('p'));
+  const qErr = errs.find(e => e.includes('q'));
+  document.getElementById('pError').textContent = pErr || '';
+  document.getElementById('qError').textContent = qErr || '';
+  document.getElementById('pInput').classList.toggle('error', !!pErr);
+  document.getElementById('qInput').classList.toggle('error', !!qErr);
+  if (errs.length) return;
+
+  // Update sidebar calcs
+  const a = ShiftLogic.amounts(p, q);
+  document.getElementById('pSqurtLabel').textContent = `√p = ${a.sqrtP}`;
+  document.getElementById('qRangeLabel').textContent  = `1 – ${p-1}`;
+  document.getElementById('cv-p').textContent       = p;
+  document.getElementById('cv-sqrtp').textContent   = a.sqrtP;
+  document.getElementById('cv-q').textContent       = q;
+  document.getElementById('cv-rowshift').textContent = a.rowShift;
+  document.getElementById('cv-colshift').textContent = a.colShift;
+  document.getElementById('cv-mesh').textContent    = a.meshSteps;
+  document.getElementById('cv-ring').textContent    = a.ringSteps;
+
+  // Stage subtitles
+  document.getElementById('s1amount').textContent = a.rowShift;
+  document.getElementById('s2amount').textContent = a.colShift;
+
+  // Complexity panel
+  document.getElementById('meshFormula').textContent =
+    `(${q} mod ${a.sqrtP}) + ⌊${q}/${a.sqrtP}⌋`;
+  document.getElementById('meshStepsVal').textContent = a.meshSteps;
+  document.getElementById('ringStepsVal').textContent = a.ringSteps;
+  const ratio = (a.ringSteps / a.meshSteps).toFixed(1);
+  document.getElementById('effText').textContent =
+    a.meshSteps < a.ringSteps ? `Mesh is ${ratio}× faster` : 'Equal efficiency';
+
+  state = { ...state, p, q, ...a };
+  updateAllGrids();
+  updateComplexity();
+}
+
+// ─────────────────────────────────────────────────────────
+// Grid rendering
+// ─────────────────────────────────────────────────────────
+function nodeSize(sqrtP) {
+  if (sqrtP <= 4) return 52;
+  if (sqrtP <= 6) return 40;
+  if (sqrtP <= 7) return 34;
+  return 28;
+}
+
+function renderGrid(containerId, nodes, p, mode='init', prevNodes=null) {
+  const el = document.getElementById(containerId);
+  const s  = Math.sqrt(p);
+  const ns = nodeSize(s);
+  el.style.gridTemplateColumns = `repeat(${s}, ${ns}px)`;
+  el.style.gridTemplateRows    = `repeat(${s}, ${ns}px)`;
+  el.innerHTML = '';
+  nodes.forEach((val, pos) => {
+    const div = document.createElement('div');
+    div.className = 'mesh-node';
+    div.style.width = div.style.height = ns + 'px';
+    div.style.fontSize = ns <= 34 ? '12px' : '16px';
+    // Highlight moved nodes
+    if (prevNodes && prevNodes[pos] !== val) {
+      div.classList.add(mode === 'row' ? 'moved-row' : 'moved-col');
+    }
+    div.innerHTML = `
+      <span class="node-id" style="font-size:${ns<=34?11:16}px">${val}</span>
+      <span class="node-label">(${Math.floor(pos/s)},${pos%s})</span>`;
+    el.appendChild(div);
+  });
+}
+
+function updateAllGrids() {
+  const {p, q, rowShift, colShift} = state;
+  const initial  = ShiftLogic.initial(p);
+  const afterRow = ShiftLogic.applyRow(initial, p, rowShift);
+  const afterCol = ShiftLogic.applyCol(afterRow, p, colShift);
+  state.initial  = initial;
+  state.afterRow = afterRow;
+  state.afterFinal = afterCol;
+
+  renderGrid('grid-initial', initial,  p, 'init');
+  renderGrid('grid-stage1',  afterRow, p, 'row',  initial);
+  renderGrid('grid-stage2',  afterCol, p, 'col',  afterRow);
+
+  drawArrows('arrows-stage1', initial,  afterRow, p, 'row');
+  drawArrows('arrows-stage2', afterRow, afterCol,  p, 'col');
+
+  // Reset anim grid
+  renderGrid('grid-anim', initial, p, 'init');
+  document.getElementById('arrows-anim').innerHTML = '';
+
+  // Verification
+  const ok = ShiftLogic.verify(afterCol, p, q);
+  const vb = document.getElementById('verifyBox');
+  vb.style.display = 'flex';
+  vb.className = 'verify-row ' + (ok ? 'ok' : 'fail');
+  document.getElementById('verifyIcon').textContent = ok ? '✓' : '✗';
+  document.getElementById('verifyText').innerHTML =
+    ok ? `<strong>Mesh circular shift: CORRECT</strong>` : `<strong style="color:#ef4444">Mesh circular shift: INCORRECT</strong>`;
+  document.getElementById('verifyDetail').textContent =
+    ok ? `Node i+${q} receives data from node i for all i` : 'Verification failed';
+
+  // Build step indicator
+  const totalSteps = rowShift + colShift;
+  state.totalAnimSteps = totalSteps;
+  buildStepIndicator(totalSteps, rowShift, colShift);
+
+  // Reset anim state
+  state.animStep = 0;
+  setStatus('idle', 'ready');
+}
+
+function drawArrows(svgId, before, after, p, type) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = '';
+  const gridEl = svg.previousElementSibling;
+  if (!gridEl) return;
+  const s  = Math.sqrt(p);
+  const ns = nodeSize(s);
+  const gap = 6;
+  const totalW = s * ns + (s-1) * gap;
+  const totalH = s * ns + (s-1) * gap;
+  svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
+  svg.setAttribute('width', totalW);
+  svg.setAttribute('height', totalH);
+
+  const color = type === 'row' ? '#ff6b35' : '#a259ff';
+
+  const cx = (pos) => {
+    const c = pos % s;
+    return c * (ns + gap) + ns/2;
+  };
+  const cy = (pos) => {
+    const r = Math.floor(pos / s);
+    return r * (ns + gap) + ns/2;
+  };
+
+  before.forEach((val, fromPos) => {
+    const toPos = after.indexOf(val);
+    if (fromPos === toPos) return;
+    const x1 = cx(fromPos), y1 = cy(fromPos);
+    const x2 = cx(toPos),   y2 = cy(toPos);
+
+    // Skip if wrapping (too complex to draw cleanly — just show in moves list)
+    const fc = fromPos % s, tc = toPos % s;
+    const fr = Math.floor(fromPos/s), tr = Math.floor(toPos/s);
+    const isWrap = type === 'row'
+      ? Math.abs(fc - tc) > 1
+      : Math.abs(fr - tr) > 1;
+    if (isWrap) return;
+
+    const defs = svg.querySelector('defs') || (() => {
+      const d = document.createElementNS('http://www.w3.org/2000/svg','defs');
+      svg.insertBefore(d, svg.firstChild);
+      return d;
+    })();
+    if (!svg.querySelector(`#arr-${type}`)) {
+      const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+      marker.setAttribute('id', `arr-${type}`);
+      marker.setAttribute('viewBox','0 0 10 10');
+      marker.setAttribute('refX','8'); marker.setAttribute('refY','5');
+      marker.setAttribute('markerWidth','5'); marker.setAttribute('markerHeight','5');
+      marker.setAttribute('orient','auto-start-reverse');
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d','M2 1L8 5L2 9');
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width','2');
+      marker.appendChild(path);
+      defs.appendChild(marker);
+    }
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-opacity','0.6');
+    line.setAttribute('marker-end',`url(#arr-${type})`);
+    svg.appendChild(line);
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// Animation
+// ─────────────────────────────────────────────────────────
+function buildStepIndicator(total, rowSteps, colSteps) {
+  const el = document.getElementById('stepIndicator');
+  el.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'step-pip';
+    pip.dataset.type = i < rowSteps ? 'row' : 'col';
+    el.appendChild(pip);
+  }
+}
+
+function updateStepIndicator(currentStep) {
+  const pips = document.querySelectorAll('.step-pip');
+  pips.forEach((pip, i) => {
+    pip.className = 'step-pip';
+    if (i < currentStep) pip.classList.add('done');
+    else if (i === currentStep) pip.classList.add('active', pip.dataset.type);
+  });
+}
+
+function buildMovesList(before, after, p, type) {
+  const s  = Math.sqrt(p);
+  const el = document.getElementById('movesList');
+  el.innerHTML = '';
+  before.forEach((val, fromPos) => {
+    const toPos = after.indexOf(val);
+    if (fromPos === toPos) return;
+    const item = document.createElement('div');
+    item.className = `move-item ${type}`;
+    const fc = fromPos % s, fr = Math.floor(fromPos/s);
+    const tc = toPos   % s, tr = Math.floor(toPos/s);
+    item.innerHTML = `
+      <div class="move-chip" style="color:${type==='row'?'var(--row-col)':'var(--col-col)'}">${val}</div>
+      <div>
+        <div class="move-coords">(${fr},${fc}) → (${tr},${tc})</div>
+      </div>`;
+    el.appendChild(item);
+  });
+}
+
+let animStepData = [];
+
+function prepareAnimSteps() {
+  const {p, rowShift, colShift} = state;
+  animStepData = [];
+  let cur = ShiftLogic.initial(p);
+
+  // Row shifts (one at a time)
+  for (let i = 0; i < rowShift; i++) {
+    const prev = [...cur];
+    cur = ShiftLogic.applyRow(cur, p, 1);
+    animStepData.push({ nodes: [...cur], prev, type: 'row', stepNum: i+1, total: rowShift });
+  }
+  // Col shifts
+  for (let i = 0; i < colShift; i++) {
+    const prev = [...cur];
+    cur = ShiftLogic.applyCol(cur, p, 1);
+    animStepData.push({ nodes: [...cur], prev, type: 'col', stepNum: i+1, total: colShift });
+  }
+  return animStepData;
+}
+
+function applyAnimStep(stepIdx) {
+  if (stepIdx >= animStepData.length) {
+    finishAnimation(); return;
+  }
+  const step = animStepData[stepIdx];
+  renderGrid('grid-anim', step.nodes, state.p, step.type, step.prev);
+  drawArrows('arrows-anim', step.prev, step.nodes, state.p, step.type);
+  buildMovesList(step.prev, step.nodes, state.p, step.type);
+  updateStepIndicator(stepIdx);
+
+  const desc = step.type === 'row'
+    ? `Stage 1 · Row shift step ${step.stepNum}/${step.total} — shifting right by 1`
+    : `Stage 2 · Col shift step ${step.stepNum}/${step.total} — shifting down by 1`;
+  document.getElementById('animDesc').textContent = desc;
+  state.animStep = stepIdx + 1;
+}
+
+function runAnimation() {
+  if (state.animRunning) { pauseAnimation(); return; }
+  if (state.animStep >= animStepData.length) { state.animStep = 0; }
+  prepareAnimSteps();
+  setStatus('running', 'animating…');
+  state.animRunning = true;
+  document.getElementById('runBtn').textContent = '⏸ PAUSE';
+
+  const speed = parseInt(document.getElementById('speedSlider').value);
+  function tick() {
+    if (!state.animRunning) return;
+    applyAnimStep(state.animStep);
+    if (state.animStep < animStepData.length) {
+      state.animTimer = setTimeout(tick, speed);
+    }
+  }
+  tick();
+}
+
+function pauseAnimation() {
+  state.animRunning = false;
+  clearTimeout(state.animTimer);
+  document.getElementById('runBtn').textContent = '▶ RESUME';
+  setStatus('idle', 'paused');
+}
+
+function finishAnimation() {
+  state.animRunning = false;
+  clearTimeout(state.animTimer);
+  document.getElementById('runBtn').textContent = '▶ RUN ANIMATION';
+  setStatus('done', 'complete');
+  document.getElementById('animDesc').textContent =
+    `Complete — node i+${state.q} received data from node i ✓`;
+  updateStepIndicator(animStepData.length);
+}
+
+function stepForward() {
+  pauseAnimation();
+  prepareAnimSteps();
+  if (state.animStep < animStepData.length) {
+    applyAnimStep(state.animStep);
+  }
+}
+
+function stepBack() {
+  pauseAnimation();
+  prepareAnimSteps();
+  if (state.animStep > 1) {
+    state.animStep -= 2;
+    applyAnimStep(state.animStep);
+  } else {
+    state.animStep = 0;
+    renderGrid('grid-anim', state.initial, state.p, 'init');
+    document.getElementById('arrows-anim').innerHTML = '';
+    document.getElementById('movesList').innerHTML = '';
+    document.getElementById('animDesc').textContent = 'Press Run to begin';
+    updateStepIndicator(-1);
+  }
+}
+
+function resetAll() {
+  pauseAnimation();
+  state.animStep = 0;
+  renderGrid('grid-anim', state.initial, state.p, 'init');
+  document.getElementById('arrows-anim').innerHTML = '';
+  document.getElementById('movesList').innerHTML   = '';
+  document.getElementById('animDesc').textContent  = 'Press Run to begin';
+  document.getElementById('runBtn').textContent    = '▶ RUN ANIMATION';
+  updateStepIndicator(-1);
+  setStatus('idle', 'ready');
+}
+
+function setStatus(type, text) {
+  const dot  = document.getElementById('statusDot');
+  const span = document.getElementById('statusText');
+  dot.className  = `status-dot ${type}`;
+  span.textContent = text;
+}
+
+// ─────────────────────────────────────────────────────────
+// Complexity Chart & Table
+// ─────────────────────────────────────────────────────────
+function updateComplexity() {
+  const {p, q} = state;
+  const qVals = Array.from({length: p-1}, (_,i) => i+1);
+  const meshVals = qVals.map(qi => {
+    const s = Math.sqrt(p);
+    return (qi % s) + Math.floor(qi / s);
+  });
+  const ringVals = qVals.map(qi => Math.min(qi, p - qi));
+
+  // Chart
+  const ctx = document.getElementById('complexityChart').getContext('2d');
+  if (compChart) compChart.destroy();
+  compChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: qVals,
+      datasets: [
+        {
+          label: 'Mesh steps',
+          data: meshVals,
+          borderColor: '#00e5ff',
+          backgroundColor: 'rgba(0,229,255,.08)',
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: 0,
+          fill: true,
+        },
+        {
+          label: 'Ring steps',
+          data: ringVals,
+          borderColor: '#6b7280',
+          backgroundColor: 'rgba(107,114,128,.05)',
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: 0,
+          fill: true,
+          borderDash: [4, 4],
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#181c24',
+          borderColor: '#252a35',
+          borderWidth: 1,
+          titleColor: '#e8eaf0',
+          bodyColor: '#6b7280',
+          callbacks: {
+            title: (items) => `q = ${items[0].label}`,
+          }
+        },
+        annotation: {},
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,.04)' },
+          ticks: { color: '#6b7280', font: { family: 'Space Mono', size: 10 } },
+          title: { display: true, text: 'q (shift distance)', color: '#6b7280',
+                   font: { family: 'Space Mono', size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,.04)' },
+          ticks: { color: '#6b7280', font: { family: 'Space Mono', size: 10 } },
+          title: { display: true, text: 'steps', color: '#6b7280',
+                   font: { family: 'Space Mono', size: 10 } }
+        }
+      }
+    }
+  });
+
+  // Table — sample q values
+  const sample = [1, 2, 3, 5, 7, 10, Math.floor(p/3), Math.floor(p/2), p-2, p-1]
+    .filter((v,i,a) => v >= 1 && v < p && a.indexOf(v) === i)
+    .sort((a,b) => a-b);
+  const s = Math.sqrt(p);
+  const tableEl = document.getElementById('compTable');
+  tableEl.innerHTML = `<thead><tr>
+    <th>q</th><th>row shift</th><th>col shift</th>
+    <th class="chip-mesh">Mesh steps</th><th class="chip-ring">Ring steps</th><th>winner</th>
+  </tr></thead>`;
+  const tbody = document.createElement('tbody');
+  sample.forEach(qi => {
+    const rs = qi % s, cs = Math.floor(qi / s);
+    const ms = rs + cs, ri = Math.min(qi, p - qi);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${qi}</td><td>${rs}</td><td>${cs}</td>
+      <td class="${ms <= ri ? 'win' : 'chip-mesh'}">${ms}</td>
+      <td class="chip-ring">${ri}</td>
+      <td>${ms <= ri ? '<span class="win">Mesh ✓</span>' : '<span style="color:var(--muted)">Ring</span>'}</td>`;
+    tbody.appendChild(tr);
+  });
+  tableEl.appendChild(tbody);
+}
+
+// ─────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────
+onParamsChange();
+</script>
+</body>
+</html>
