@@ -3,7 +3,7 @@
 An interactive web application that simulates and visualizes **circular q-shift** on a 2D mesh topology — PDC Assignment 02, Question 4.
 
 ## 🔗 Live Demo
-> **Deploy URL:** *(paste your Netlify/Vercel URL here after deployment)*
+> **Deploy URL:** *(https://splendid-marzipan-0bab83.netlify.app/)*
 
 ---
 
